@@ -1,0 +1,2709 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>24 Tage Musik – Ein musikalischer Adventskalender</title>
+<style>
+  :root {
+    --bg-deep: #070b14;
+    --bg-mid: #0d1526;
+    --card-bg: rgba(16, 25, 45, 0.92);
+    --card-locked: rgba(11, 17, 31, 0.78);
+    --gold: #d4af37;
+    --gold-light: #f5d77f;
+    --gold-glow: rgba(212, 175, 55, 0.34);
+    --gold-border: rgba(212, 175, 55, 0.32);
+    --text-main: #f5f1e8;
+    --text-muted: #93a1bd;
+    --beat-energy: 0;
+    --advent-warmth: 0;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body {
+    min-height: 100vh;
+    background-color: var(--bg-deep);
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(circle at 50% -8%, rgba(245, 215, 127, 0.17) 0%, rgba(212, 175, 55, 0.05) 38%, transparent 66%),
+      radial-gradient(circle at 15% 42%, rgba(212, 175, 55, 0.04) 0%, transparent 45%),
+      radial-gradient(circle at 85% 78%, rgba(212, 175, 55, 0.04) 0%, transparent 45%),
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 13px,
+        rgba(212, 175, 55, 0.036) 14px,
+        transparent 15px,
+        transparent 118px
+      ),
+      linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-mid) 100%);
+  }
+
+  #snowCanvas {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .candle-glow {
+    position: fixed;
+    top: -12%;
+    left: 50%;
+    transform: translateX(-50%) scale(calc(1 + var(--beat-energy) * 0.15 + var(--advent-warmth) * 0.28));
+    width: min(880px, 96vw);
+    height: 460px;
+    background: radial-gradient(ellipse at center, rgba(245, 215, 127, calc(0.08 + var(--advent-warmth) * 0.14 + var(--beat-energy) * 0.19)) 0%, rgba(212, 175, 55, calc(0.02 + var(--advent-warmth) * 0.06 + var(--beat-energy) * 0.07)) 45%, transparent 72%);
+    pointer-events: none;
+    z-index: 1;
+    transition: transform 0.25s ease-out;
+  }
+
+  /* Hintergrund-Notenlinien (füllen sich im Laufe des Dezembers mit Noten) */
+  .bg-score-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.9;
+  }
+
+  /* Vier dezente Adventslicht-Quellen im Hintergrund (1. bis 4. Advent 2026) */
+  .advent-lights-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .advent-orb {
+    position: absolute;
+    width: 340px;
+    height: 340px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(245, 215, 127, 0.13) 0%, rgba(212, 175, 55, 0.04) 42%, transparent 72%);
+    opacity: 0;
+    transition: opacity 0.8s ease;
+    animation: adventFlicker 5.5s infinite ease-in-out;
+  }
+
+  .advent-orb::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 236, 173, 0.75);
+    box-shadow: 0 0 18px 6px rgba(245, 215, 127, 0.42);
+  }
+
+  .advent-orb.lit {
+    opacity: 1;
+  }
+
+  .advent-orb.orb-1 { top: 24%; left: 12%; animation-delay: 0s; }
+  .advent-orb.orb-2 { top: 22%; left: 88%; animation-delay: 1.4s; }
+  .advent-orb.orb-3 { top: 76%; left: 11%; animation-delay: 2.7s; }
+  .advent-orb.orb-4 { top: 78%; left: 89%; animation-delay: 4.1s; }
+
+  @keyframes adventFlicker {
+    0%, 100% { transform: translate(-50%, -50%) scale(0.96); }
+    50% { transform: translate(-50%, -50%) scale(1.06); }
+  }
+
+  .page-wrap {
+    position: relative;
+    z-index: 2;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1.75rem 1.25rem 3.4rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  header {
+    text-align: center;
+    width: 100%;
+    margin-bottom: 1.1rem;
+  }
+
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(1.95rem, 4.3vw, 2.85rem);
+    font-weight: 700;
+    color: var(--gold-light);
+    letter-spacing: 0.015em;
+    text-shadow: 0 2px 20px rgba(212, 175, 55, 0.3);
+    margin-bottom: 0.3rem;
+  }
+
+  .sub-headline {
+    font-size: 0.84rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 0.82rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  .countdown-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    background: rgba(12, 19, 34, 0.9);
+    border: 1px solid var(--gold-border);
+    border-radius: 999px;
+    padding: 0.42rem 1.05rem;
+    font-size: 0.82rem;
+    color: var(--gold-light);
+    margin-bottom: 0.92rem;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+  }
+
+  .pulse-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 8px var(--gold);
+    animation: pulseAnim 1.8s infinite ease-in-out;
+  }
+
+  @keyframes pulseAnim {
+    0%, 100% { opacity: 0.4; transform: scale(0.88); }
+    50% { opacity: 1; transform: scale(1.22); }
+  }
+
+  /* Steuerleiste */
+  .controls-bar {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.34rem;
+    background: rgba(12, 19, 34, 0.92);
+    border: 1px solid var(--gold-border);
+    border-radius: 18px;
+    padding: 0.5rem 0.74rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.36);
+    max-width: 100%;
+  }
+
+  .shape-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.79rem;
+    font-weight: 500;
+    padding: 0.36rem 0.66rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .shape-btn:hover {
+    color: var(--gold-light);
+    background: rgba(212, 175, 55, 0.09);
+  }
+
+  .shape-btn.active {
+    background: linear-gradient(135deg, var(--gold-light), var(--gold));
+    color: #070b14;
+    font-weight: 600;
+    box-shadow: 0 2px 10px rgba(212, 175, 55, 0.28);
+  }
+
+  .ctrl-divider {
+    width: 1px;
+    height: 22px;
+    background: var(--gold-border);
+    margin: 0 0.2rem;
+  }
+
+  /* Toggle-Schalter "Zahlen mischen" */
+  .shuffle-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+    font-size: 0.79rem;
+    color: var(--gold-light);
+    cursor: pointer;
+    padding: 0.3rem 0.42rem;
+    user-select: none;
+  }
+
+  .switch-track {
+    position: relative;
+    width: 34px;
+    height: 19px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid var(--gold-border);
+    border-radius: 999px;
+    transition: background 0.22s ease;
+  }
+
+  .switch-knob {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: var(--gold-light);
+    transition: transform 0.22s ease, background 0.22s ease;
+  }
+
+  .shuffle-toggle.is-on .switch-track {
+    background: var(--gold);
+  }
+
+  .shuffle-toggle.is-on .switch-knob {
+    transform: translateX(15px);
+    background: #070b14;
+  }
+
+  /* Favoriten-Filter Button */
+  .fav-filter-btn {
+    background: rgba(212, 175, 55, 0.08);
+    border: 1px solid var(--gold-border);
+    color: var(--gold-light);
+    font-family: inherit;
+    font-size: 0.79rem;
+    font-weight: 500;
+    padding: 0.36rem 0.68rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .fav-filter-btn:hover {
+    border-color: var(--gold);
+    background: rgba(212, 175, 55, 0.16);
+  }
+
+  .fav-filter-btn.active {
+    background: linear-gradient(135deg, var(--gold-light), var(--gold));
+    color: #070b14;
+    font-weight: 600;
+  }
+
+  /* Feste Kalender-Bühne (780px), damit untere Leiste & Widmung exakt ruhig stehen */
+  .stage-scroll {
+    width: 100%;
+    overflow-x: auto;
+    padding: 0.6rem 0;
+  }
+
+  .stage-scroll.no-scroll,
+  .calendar-stage.is-classic {
+    overflow: visible !important;
+  }
+
+  .calendar-stage {
+    width: 100%;
+    min-height: 780px;
+    height: 780px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+  }
+
+  @media (max-width: 820px) {
+    .calendar-stage {
+      min-height: 750px;
+      height: 750px;
+    }
+  }
+
+  /* Klassisches 6x4 Raster (lückenlos & komplett ohne Scrollbalken) */
+  .classic-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 1.05rem;
+    width: 100%;
+    max-width: 1060px;
+    margin: 0 auto;
+    box-sizing: border-box;
+  }
+
+  .classic-grid .door-card {
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  @media (max-width: 780px) {
+    .classic-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.72rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .classic-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.6rem;
+    }
+  }
+
+  /* Große Raster-Symbole (Herz, 6 7, Tannenbaum) */
+  .grid-shape {
+    display: grid;
+    gap: 0.68rem;
+    justify-content: center;
+    align-content: center;
+    margin: 0 auto;
+  }
+
+  .grid-shape .door-card {
+    width: 112px;
+    height: 112px;
+    min-height: 0;
+    aspect-ratio: auto;
+    padding: 0.45rem;
+  }
+
+  .grid-shape .door-num {
+    font-size: 1.85rem;
+    margin-bottom: 0.22rem;
+  }
+
+  .grid-shape .door-sub {
+    font-size: 0.68rem;
+  }
+
+  /* Große Koordinaten-Bühne (Stern, Schneeflocke, Lebkuchenmann, Shaun das Schaf, Durcheinander) */
+  .polar-stage {
+    position: relative;
+    width: 1040px;
+    height: 760px;
+    flex-shrink: 0;
+    margin: 0 auto;
+  }
+
+  /* Türchen-Kärtchen */
+  .door-card {
+    position: relative;
+    aspect-ratio: 1 / 1.04;
+    min-height: 98px;
+    background: var(--card-bg);
+    border: 1px solid var(--gold-border);
+    border-top: 1.5px solid rgba(248, 250, 255, 0.45);
+    border-radius: 17px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0.55rem;
+    cursor: pointer;
+    user-select: none;
+    box-shadow:
+      0 8px 20px rgba(0, 0, 0, 0.45),
+      inset 0 4px 10px rgba(255, 255, 255, 0.05);
+    transition: transform 0.24s ease, border-color 0.22s ease, box-shadow 0.22s ease, opacity 0.25s ease;
+    overflow: hidden;
+  }
+
+  /* Glitzernde Schneehaube oben am Türchen */
+  .door-card::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 8%;
+    right: 8%;
+    height: 3.5px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(245, 248, 255, 0.62) 25%,
+      rgba(255, 255, 255, 0.9) 50%,
+      rgba(245, 248, 255, 0.62) 75%,
+      transparent
+    );
+    border-radius: 0 0 8px 8px;
+    pointer-events: none;
+  }
+
+  /* Feiner Innenrahmen */
+  .door-card::before {
+    content: "";
+    position: absolute;
+    inset: 5px;
+    border: 1px dashed rgba(212, 175, 55, 0.18);
+    border-radius: 11px;
+    pointer-events: none;
+  }
+
+  .door-card:hover {
+    transform: translateY(-3px) scale(1.04);
+    border-color: var(--gold);
+    box-shadow:
+      0 12px 26px rgba(0, 0, 0, 0.6),
+      0 0 22px var(--gold-glow),
+      inset 0 4px 12px rgba(255, 255, 255, 0.09);
+    z-index: 14;
+  }
+
+  .door-card.locked {
+    background: var(--card-locked);
+    border-color: rgba(147, 161, 189, 0.18);
+    border-top-color: rgba(235, 242, 255, 0.3);
+  }
+
+  .door-card.locked .door-num {
+    color: #b8c4d9;
+    opacity: 0.88;
+  }
+
+  .door-card.unlocked {
+    background: linear-gradient(160deg, rgba(22, 33, 56, 0.94), rgba(13, 21, 38, 0.96));
+    box-shadow:
+      0 8px 22px rgba(0, 0, 0, 0.48),
+      inset 0 0 16px rgba(212, 175, 55, 0.09);
+  }
+
+  .door-card.unlocked .door-num {
+    color: var(--gold-light);
+    text-shadow: 0 2px 12px rgba(212, 175, 55, 0.36);
+  }
+
+  .door-card.filtered-out {
+    opacity: 0.18;
+    transform: scale(0.95);
+  }
+
+  /* Spezielles Styling für Lebkuchenmann (#3b2316 + weiße Zuckerguss-Kontur) */
+  .door-card.gingerbread-card {
+    background: radial-gradient(circle at 35% 28%, #523220, #3b2316 74%);
+    border: 1.5px solid rgba(252, 248, 242, 0.72);
+    box-shadow:
+      0 8px 20px rgba(0, 0, 0, 0.5),
+      inset 0 0 14px rgba(212, 152, 92, 0.18);
+  }
+
+  .door-card.gingerbread-card::before {
+    border: 1.2px dashed rgba(255, 250, 245, 0.65);
+  }
+
+  .door-card.gingerbread-card .door-num {
+    color: #fff8ee;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Spezielles Styling für Shaun das Schaf */
+  /* Flauschige weiße Wolllocke & wollig-heller Körper (#e8ecf2) */
+  .door-card.shaun-wool {
+    background: radial-gradient(circle at 35% 30%, #f7f9fc, #e8ecf2 78%);
+    border: 1.5px solid rgba(255, 255, 255, 0.88);
+    border-radius: 26px;
+    box-shadow:
+      0 8px 20px rgba(0, 0, 0, 0.48),
+      inset 0 -4px 10px rgba(168, 178, 196, 0.35);
+  }
+
+  .door-card.shaun-wool::before {
+    border: 1px dashed rgba(45, 55, 75, 0.24);
+    border-radius: 20px;
+  }
+
+  .door-card.shaun-wool .door-num {
+    color: #161b26;
+    text-shadow: none;
+  }
+
+  .door-card.shaun-wool .door-sub,
+  .door-card.shaun-wool .door-title-mini,
+  .door-card.shaun-wool .crystal-icon {
+    color: #364156;
+  }
+
+  .door-card.shaun-wool .note-icon {
+    color: #9b7616;
+  }
+
+  /* Schmales dunkles Schiefer-Gesicht (#181c24), abstehende Ohren & vier dünne Beine */
+  .door-card.shaun-dark {
+    background: linear-gradient(165deg, #212733, #181c24 78%);
+    border: 1.2px solid rgba(130, 142, 166, 0.36);
+  }
+
+  .door-card.shaun-dark::before {
+    border-color: rgba(212, 175, 55, 0.16);
+  }
+
+  .door-card.shaun-dark .door-num {
+    color: #eef2fa;
+  }
+
+  .door-card.shaun-ear {
+    border-radius: 24px 10px 24px 10px;
+  }
+
+  /* Themenfarben für Herz, Tannenbaum, Stern & Schneeflocke */
+  .door-card.theme-heart {
+    background: radial-gradient(circle at 35% 30%, #631b30, #3f101e 78%);
+    border-color: rgba(244, 166, 184, 0.52);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5), inset 0 0 14px rgba(244, 143, 177, 0.16);
+  }
+  .door-card.theme-heart .door-num { color: #ffe4ec; }
+
+  .door-card.theme-tree {
+    background: radial-gradient(circle at 35% 28%, #1d4a37, #112e22 78%);
+    border-color: rgba(134, 214, 172, 0.45);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5), inset 0 0 14px rgba(110, 200, 155, 0.14);
+  }
+  .door-card.theme-tree .door-num { color: #e6f7ee; }
+
+  .door-card.theme-trunk {
+    background: radial-gradient(circle at 35% 28%, #593824, #3b2316 78%);
+    border-color: rgba(212, 175, 55, 0.48);
+  }
+  .door-card.theme-trunk .door-num { color: #f7ead9; }
+
+  .door-card.theme-star {
+    background: radial-gradient(circle at 35% 30%, #664d18, #3d2d0d 78%);
+    border-color: rgba(245, 215, 127, 0.62);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5), inset 0 0 16px rgba(245, 215, 127, 0.22);
+  }
+  .door-card.theme-star .door-num { color: #fff6d6; }
+
+  .door-card.theme-snowflake {
+    background: radial-gradient(circle at 35% 30%, #1d436b, #10253d 78%);
+    border-color: rgba(176, 222, 255, 0.56);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5), inset 0 0 16px rgba(176, 222, 255, 0.18);
+  }
+  .door-card.theme-snowflake .door-num { color: #e8f5ff; }
+
+  /* Goldene Eck-Ornamente */
+  .orn-corner {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    pointer-events: none;
+    opacity: 0.38;
+  }
+
+  .orn-corner.tl {
+    top: 6px;
+    left: 6px;
+    border-top: 1px solid var(--gold);
+    border-left: 1px solid var(--gold);
+    border-top-left-radius: 4px;
+  }
+
+  .orn-corner.br {
+    bottom: 6px;
+    right: 6px;
+    border-bottom: 1px solid var(--gold);
+    border-right: 1px solid var(--gold);
+    border-bottom-right-radius: 4px;
+  }
+
+  .fav-badge {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    font-size: 0.84rem;
+    color: var(--gold);
+    text-shadow: 0 0 8px rgba(212, 175, 55, 0.8);
+    pointer-events: none;
+  }
+
+  /* Große Kärtchen in den Koordinaten-Formen */
+  .polar-stage .door-card {
+    position: absolute;
+    width: var(--card-w, 114px);
+    height: var(--card-h, 114px);
+    min-height: 0;
+    aspect-ratio: auto;
+    padding: 0.42rem;
+    border-radius: 17px;
+    transform: translate(-50%, -50%) rotate(var(--rot, 0deg));
+  }
+
+  .polar-stage .door-card:hover {
+    transform: translate(-50%, -50%) rotate(0deg) scale(1.08);
+    z-index: 22;
+  }
+
+  .polar-stage .door-card.filtered-out {
+    transform: translate(-50%, -50%) rotate(var(--rot, 0deg)) scale(0.94);
+  }
+
+  .polar-stage .orn-corner {
+    width: 8px;
+    height: 8px;
+  }
+
+  .polar-stage .orn-corner.tl { top: 5px; left: 5px; }
+  .polar-stage .orn-corner.br { bottom: 5px; right: 5px; }
+  .polar-stage .fav-badge { top: 5px; right: 7px; font-size: 0.76rem; }
+
+  .door-num {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(1.65rem, 2.9vw, 2.3rem);
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 0.28rem;
+  }
+
+  .polar-stage .door-num {
+    font-size: var(--num-size, 1.88rem);
+    margin-bottom: 0.2rem;
+  }
+
+  .door-sub {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.24rem;
+    max-width: 92%;
+  }
+
+  .polar-stage .door-sub {
+    font-size: 0.67rem;
+  }
+
+  .door-title-mini {
+    color: var(--gold-light);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .note-icon {
+    color: var(--gold);
+    font-size: 0.76rem;
+    flex-shrink: 0;
+  }
+
+  .crystal-icon {
+    color: rgba(224, 236, 255, 0.82);
+    font-size: 0.72rem;
+  }
+
+  /* Ensemble-Leiste & Fußzeile (feste Position unterhalb der Stage) */
+  footer {
+    width: 100%;
+    margin-top: 1.4rem;
+    padding-top: 1.2rem;
+    border-top: 1px solid rgba(212, 175, 55, 0.18);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 1.15rem;
+  }
+
+  .ensemble-strip {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.48rem;
+    margin-top: 38px;
+    padding: 0.58rem 0.9rem;
+    border-radius: 16px;
+    background: rgba(212, 175, 55, 0.07);
+    border: 1px solid rgba(212, 175, 55, 0.26);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+  }
+
+  .inst-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.36rem;
+    padding: 0.34rem 0.72rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    border: 1px solid rgba(147, 161, 189, 0.22);
+    background: rgba(11, 17, 31, 0.65);
+    color: var(--text-muted);
+    opacity: 0.55;
+    transition: all 0.3s ease;
+  }
+
+  .inst-chip.active {
+    opacity: 1;
+    color: var(--gold-light);
+    border-color: var(--gold);
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.22), rgba(16, 25, 45, 0.92));
+    box-shadow: 0 0 14px rgba(212, 175, 55, 0.26);
+  }
+
+  .dedication-line {
+    width: 100%;
+    text-align: center;
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: italic;
+    font-size: 1.18rem;
+    color: var(--gold-light);
+    user-select: none;
+    cursor: default;
+    padding: 0.25rem 0.75rem;
+    letter-spacing: 0.02em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .dedication-flake {
+    font-style: normal;
+    font-size: 0.8rem;
+    color: var(--gold);
+    opacity: 0.65;
+    margin: 0 0.45rem;
+  }
+
+  /* Versteckte Admin-Leiste */
+  .admin-bar {
+    display: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.6rem;
+    background: rgba(12, 19, 34, 0.96);
+    border: 1px solid var(--gold);
+    border-radius: 14px;
+    padding: 0.6rem 0.95rem;
+  }
+
+  .admin-bar.visible {
+    display: flex;
+  }
+
+  .ui-btn {
+    font-family: inherit;
+    font-size: 0.8rem;
+    padding: 0.46rem 0.88rem;
+    border-radius: 10px;
+    cursor: pointer;
+    border: 1px solid var(--gold);
+    background: rgba(212, 175, 55, 0.1);
+    color: var(--gold-light);
+    transition: all 0.2s ease;
+  }
+
+  .ui-btn:hover {
+    background: rgba(212, 175, 55, 0.22);
+  }
+
+  .ui-btn.primary {
+    background: linear-gradient(135deg, var(--gold-light), var(--gold));
+    color: #070b14;
+    font-weight: 600;
+    border: none;
+  }
+
+  /* Modals */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(4, 7, 14, 0.86);
+    backdrop-filter: blur(6px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    z-index: 50;
+  }
+
+  .modal-backdrop.open {
+    display: flex;
+  }
+
+  .modal-box {
+    position: relative;
+    width: 100%;
+    max-width: 540px;
+    max-height: 90vh;
+    overflow-y: auto;
+    background: linear-gradient(165deg, #111b32, #080d1a);
+    border: 1px solid rgba(212, 175, 55, calc(0.65 + var(--beat-energy) * 0.35));
+    border-radius: 22px;
+    padding: 1.7rem;
+    box-shadow:
+      0 24px 60px rgba(0, 0, 0, 0.82),
+      0 0 calc(16px + var(--beat-energy) * 44px) rgba(212, 175, 55, calc(0.14 + var(--beat-energy) * 0.42)),
+      inset 0 0 calc(8px + var(--beat-energy) * 24px) rgba(245, 215, 127, calc(0.03 + var(--beat-energy) * 0.14));
+    transition: box-shadow 0.07s ease-out, border-color 0.07s ease-out;
+  }
+
+  .modal-box.wide {
+    max-width: 760px;
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--gold-border);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    cursor: pointer;
+  }
+
+  .modal-close:hover {
+    color: var(--gold-light);
+    border-color: var(--gold);
+  }
+
+  .modal-kicker {
+    font-size: 0.74rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 0.32rem;
+  }
+
+  .modal-heading {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.7rem;
+    color: var(--gold-light);
+    margin-bottom: 0.6rem;
+  }
+
+  .inst-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-bottom: 1rem;
+  }
+
+  .inst-tag {
+    font-size: 0.74rem;
+    color: var(--gold-light);
+    background: rgba(212, 175, 55, 0.12);
+    border: 1px solid var(--gold-border);
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+  }
+
+  .modal-note {
+    font-size: 0.93rem;
+    line-height: 1.6;
+    color: #e2e7f2;
+    background: rgba(255, 255, 255, 0.03);
+    border-left: 3px solid var(--gold);
+    padding: 0.82rem 1rem;
+    border-radius: 0 10px 10px 0;
+    margin-bottom: 1.1rem;
+  }
+
+  /* Audio-Player */
+  .player-card {
+    background: rgba(6, 10, 19, 0.92);
+    border: 1px solid var(--gold-border);
+    border-radius: 16px;
+    padding: 1rem;
+    margin-bottom: 0.95rem;
+  }
+
+  .player-top {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .play-toggle {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, var(--gold-light), var(--gold));
+    color: #070b14;
+    font-size: 1.08rem;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .loop-toggle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--gold-border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-muted);
+    font-size: 1.05rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+  }
+
+  .loop-toggle:hover {
+    color: var(--gold-light);
+    border-color: var(--gold);
+  }
+
+  .loop-toggle.active {
+    background: rgba(212, 175, 55, 0.22);
+    border-color: var(--gold);
+    color: var(--gold-light);
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+  }
+
+  .wave-bars {
+    flex: 1;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .wave-bar {
+    flex: 1;
+    height: 5px;
+    background: var(--gold);
+    border-radius: 99px;
+    opacity: 0.78;
+    transition: height 0.12s ease;
+  }
+
+  .time-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.74rem;
+    color: var(--text-muted);
+  }
+
+  .seek-track {
+    flex: 1;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 99px;
+    cursor: pointer;
+    overflow: hidden;
+  }
+
+  .seek-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--gold-light);
+  }
+
+  .player-caption {
+    text-align: center;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+  }
+
+  .modal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin-bottom: 1.1rem;
+  }
+
+  .modal-action-btn {
+    flex: 1 1 30%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.56rem 0.72rem;
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 0.81rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--gold-border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--gold-light);
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+
+  .modal-action-btn:hover {
+    border-color: var(--gold);
+    background: rgba(212, 175, 55, 0.12);
+  }
+
+  .modal-action-btn.fav-active {
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.28), rgba(212, 175, 55, 0.12));
+    border-color: var(--gold);
+    color: #fff7dc;
+    box-shadow: 0 0 14px rgba(212, 175, 55, 0.25);
+  }
+
+  .modal-action-btn.wa-btn {
+    border-color: rgba(110, 214, 155, 0.34);
+    background: rgba(37, 211, 102, 0.08);
+    color: #d9f7e6;
+  }
+
+  .modal-action-btn.wa-btn:hover {
+    border-color: rgba(110, 214, 155, 0.72);
+    background: rgba(37, 211, 102, 0.17);
+  }
+
+  /* Konzertprogramm-Rückblick (Finale am 24. Dezember) */
+  .finale-program {
+    display: none;
+    margin-top: 1.1rem;
+    background: linear-gradient(160deg, rgba(36, 28, 12, 0.55), rgba(11, 18, 34, 0.88));
+    border: 1px solid rgba(212, 175, 55, 0.42);
+    border-radius: 14px;
+    padding: 0.95rem 1.05rem;
+  }
+
+  .finale-program.visible {
+    display: block;
+  }
+
+  .finale-program-head {
+    text-align: center;
+    font-family: Georgia, "Times New Roman", serif;
+    color: var(--gold-light);
+    font-size: 1.05rem;
+    letter-spacing: 0.03em;
+    padding-bottom: 0.55rem;
+    margin-bottom: 0.65rem;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.25);
+  }
+
+  .finale-program-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.38rem;
+    max-height: 220px;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+  }
+
+  .program-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.65rem;
+    font-size: 0.78rem;
+    padding: 0.26rem 0.4rem;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.025);
+  }
+
+  .program-row.is-finale {
+    background: rgba(212, 175, 55, 0.16);
+    border: 1px solid rgba(212, 175, 55, 0.36);
+  }
+
+  .program-day-title {
+    color: var(--gold-light);
+    font-weight: 500;
+  }
+
+  .program-day-num {
+    color: var(--gold);
+    font-family: Georgia, serif;
+    font-weight: 700;
+    margin-right: 0.38rem;
+  }
+
+  .program-insts {
+    color: var(--text-muted);
+    font-size: 0.71rem;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* Notenblatt-Karte */
+  .sheet-card {
+    background: #f6f0e2;
+    color: #1c1813;
+    border-radius: 12px;
+    padding: 0.75rem 0.95rem;
+    border: 1px solid var(--gold);
+  }
+
+  .sheet-header {
+    display: flex;
+    justify-content: space-between;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 0.82rem;
+    border-bottom: 1px solid rgba(28, 24, 19, 0.18);
+    padding-bottom: 0.3rem;
+    margin-bottom: 0.45rem;
+  }
+
+  /* Editor */
+  .editor-scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    max-height: 52vh;
+    overflow-y: auto;
+    margin: 1rem 0;
+    padding-right: 0.3rem;
+  }
+
+  .editor-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--gold-border);
+    border-radius: 12px;
+    padding: 0.85rem;
+  }
+
+  .editor-card h4 {
+    font-family: Georgia, "Times New Roman", serif;
+    color: var(--gold-light);
+    margin-bottom: 0.5rem;
+  }
+
+  .editor-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.55rem;
+  }
+
+  @media (max-width: 560px) {
+    .editor-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .editor-grid input[type="text"],
+  .editor-grid textarea {
+    width: 100%;
+    background: #060a12;
+    border: 1px solid var(--gold-border);
+    border-radius: 8px;
+    padding: 0.44rem 0.6rem;
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 0.82rem;
+  }
+
+  .span-full {
+    grid-column: 1 / -1;
+  }
+
+  .editor-insts {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    padding-top: 0.2rem;
+  }
+
+  .editor-inst-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.76rem;
+    color: var(--gold-light);
+    background: rgba(212, 175, 55, 0.08);
+    border: 1px solid var(--gold-border);
+    padding: 0.22rem 0.52rem;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .toast-msg {
+    position: fixed;
+    bottom: 1.4rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(16px);
+    background: #10182c;
+    border: 1px solid var(--gold);
+    color: var(--gold-light);
+    padding: 0.62rem 1.2rem;
+    border-radius: 999px;
+    font-size: 0.83rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.25s ease;
+    z-index: 90;
+    text-align: center;
+  }
+
+  .toast-msg.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+</style>
+</head>
+<body>
+<svg id="bgScoreSvg" class="bg-score-layer" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice"></svg>
+<div class="advent-lights-layer">
+  <div id="adventOrb1" class="advent-orb orb-1" title="1. Advent"></div>
+  <div id="adventOrb2" class="advent-orb orb-2" title="2. Advent"></div>
+  <div id="adventOrb3" class="advent-orb orb-3" title="3. Advent"></div>
+  <div id="adventOrb4" class="advent-orb orb-4" title="4. Advent"></div>
+</div>
+<canvas id="snowCanvas"></canvas>
+<div class="candle-glow"></div>
+<script id="cleanTemplateSource" type="text/plain"></script>
+
+<div class="page-wrap">
+  <header>
+    <h1>Adventskalendar</h1>
+    <div class="sub-headline">
+      <span>&#10052;</span> Ein kleiner musikalischer Countdown für dich <span>&#10052;</span>
+    </div>
+
+    <div>
+      <div class="countdown-pill">
+        <span class="pulse-dot"></span>
+        <span id="countdownText">Lade Countdown &hellip;</span>
+      </div>
+    </div>
+
+    <div class="controls-bar">
+      <button type="button" class="shape-btn active" data-shape="classic">Klassisch</button>
+      <button type="button" class="shape-btn" data-shape="heart">Herz</button>
+      <button type="button" class="shape-btn" data-shape="sixseven">6 7</button>
+      <button type="button" class="shape-btn" data-shape="tree">Tannenbaum</button>
+      <button type="button" class="shape-btn" data-shape="star">Stern</button>
+      <button type="button" class="shape-btn" data-shape="snowflake">Schneeflocke</button>
+      <button type="button" class="shape-btn" data-shape="gingerbread">Lebkuchenmann</button>
+      <button type="button" class="shape-btn" data-shape="shaun">Shaun das Schaf</button>
+      <button type="button" class="shape-btn" data-shape="chaos">Durcheinander</button>
+
+      <div class="ctrl-divider"></div>
+
+      <label id="shuffleToggle" class="shuffle-toggle">
+        <span>Zahlen mischen</span>
+        <input type="checkbox" id="shuffleCheck" style="display:none;">
+        <span class="switch-track"><span class="switch-knob"></span></span>
+      </label>
+
+      <button type="button" id="favFilterBtn" class="fav-filter-btn">&#9733; Favoriten</button>
+    </div>
+  </header>
+
+  <main class="stage-scroll">
+    <div id="calendarStage" class="calendar-stage"></div>
+  </main>
+
+  <footer>
+    <div id="secretTrigger" class="dedication-line" style="margin-top: 28px;">
+      <span><span class="dedication-flake">&#10052;</span>Von Ricco für Lena<span class="dedication-flake">&#10052;</span></span>
+    </div>
+
+    <div id="adminBar" class="admin-bar">
+      <button type="button" id="previewBtn" class="ui-btn">Vorschau-Modus: Aus</button>
+      <button type="button" id="editBtn" class="ui-btn primary">Türchen bearbeiten</button>
+    </div>
+  </footer>
+</div>
+
+<!-- Türchen-Modal -->
+<div id="doorModal" class="modal-backdrop">
+  <div class="modal-box">
+    <button type="button" id="closeDoorBtn" class="modal-close">&times;</button>
+    <div id="modalDay" class="modal-kicker"></div>
+    <h2 id="modalTitle" class="modal-heading"></h2>
+    <div id="modalTags" class="inst-tags"></div>
+    <p id="modalNote" class="modal-note"></p>
+
+    <div class="player-card">
+      <div class="player-top">
+        <button type="button" id="playBtn" class="play-toggle">&#9654;</button>
+        <div id="waveBars" class="wave-bars"></div>
+        <button type="button" id="loopBtn" class="loop-toggle" title="Endlosschleife an/aus">&#8635;</button>
+      </div>
+      <div class="time-row">
+        <span id="curTime">0:00</span>
+        <div id="seekTrack" class="seek-track"><div id="seekFill" class="seek-fill"></div></div>
+        <span id="durTime">0:16</span>
+      </div>
+      <div id="playerCaption" class="player-caption"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" id="favToggleBtn" class="modal-action-btn">&#9733; Favorit</button>
+      <button type="button" id="whatsappBtn" class="modal-action-btn wa-btn">&#128172; Ricco schreiben</button>
+      <button type="button" id="downloadBtn" class="modal-action-btn">&#8595; Download</button>
+    </div>
+
+    <div class="sheet-card">
+      <div class="sheet-header">
+        <span id="sheetTitle"></span>
+        <span id="sheetTempo" style="font-style:italic;"></span>
+      </div>
+      <svg viewBox="0 0 400 50" width="100%" height="50">
+        <line x1="6" y1="12" x2="394" y2="12" stroke="#2c251d" stroke-width="0.9"/>
+        <line x1="6" y1="18" x2="394" y2="18" stroke="#2c251d" stroke-width="0.9"/>
+        <line x1="6" y1="24" x2="394" y2="24" stroke="#2c251d" stroke-width="0.9"/>
+        <line x1="6" y1="30" x2="394" y2="30" stroke="#2c251d" stroke-width="0.9"/>
+        <line x1="6" y1="36" x2="394" y2="36" stroke="#2c251d" stroke-width="0.9"/>
+        <text x="12" y="34" font-family="Georgia, serif" font-size="34" fill="#1c1813">&#119070;</text>
+        <line x1="140" y1="12" x2="140" y2="36" stroke="#2c251d" stroke-width="1"/>
+        <line x1="270" y1="12" x2="270" y2="36" stroke="#2c251d" stroke-width="1"/>
+        <line x1="392" y1="12" x2="392" y2="36" stroke="#2c251d" stroke-width="2"/>
+        <circle cx="58" cy="30" r="3.6" fill="#1c1813"/><line x1="61.5" y1="30" x2="61.5" y2="13" stroke="#1c1813" stroke-width="1.2"/>
+        <circle cx="88" cy="24" r="3.6" fill="#1c1813"/><line x1="91.5" y1="24" x2="91.5" y2="8" stroke="#1c1813" stroke-width="1.2"/>
+        <circle cx="116" cy="21" r="3.6" fill="#1c1813"/><line x1="119.5" y1="21" x2="119.5" y2="6" stroke="#1c1813" stroke-width="1.2"/>
+        <circle cx="168" cy="18" r="3.6" fill="#1c1813"/><line x1="171.5" y1="18" x2="171.5" y2="35" stroke="#1c1813" stroke-width="1.2"/>
+        <circle cx="204" cy="21" r="3.6" fill="#1c1813"/><line x1="207.5" y1="21" x2="207.5" y2="37" stroke="#1c1813" stroke-width="1.2"/>
+        <circle cx="240" cy="24" r="3.6" fill="none" stroke="#1c1813" stroke-width="1.4"/><line x1="243.5" y1="24" x2="243.5" y2="8" stroke="#1c1813" stroke-width="1.2"/>
+        <circle cx="300" cy="27" r="3.6" fill="#1c1813"/><line x1="303.5" y1="27" x2="303.5" y2="10" stroke="#1c1813" stroke-width="1.2"/>
+        <circle cx="334" cy="21" r="3.6" fill="#1c1813"/><line x1="337.5" y1="21" x2="337.5" y2="6" stroke="#1c1813" stroke-width="1.2"/>
+        <circle cx="366" cy="18" r="4.2" fill="none" stroke="#1c1813" stroke-width="1.5"/>
+      </svg>
+    </div>
+
+    <div id="finaleProgram" class="finale-program">
+      <div class="finale-program-head">&#10022; Konzertprogramm &ndash; Alle 24 Stücke &#10022;</div>
+      <div id="finaleProgramList" class="finale-program-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Geheimer Composer-Editor -->
+<div id="editorModal" class="modal-backdrop">
+  <div class="modal-box wide">
+    <button type="button" id="closeEditBtn" class="modal-close">&times;</button>
+    <div class="modal-kicker">Composer-Modus</div>
+    <h2 class="modal-heading">Türchen bearbeiten</h2>
+    <div style="margin-top:0.75rem;">
+      <input type="text" id="waPhoneInput" placeholder="WhatsApp-Nummer (optional, z. B. 491701234567)" style="width:100%; background:#060a12; border:1px solid var(--gold-border); border-radius:8px; padding:0.48rem 0.65rem; color:var(--text-main); font-family:inherit; font-size:0.82rem;">
+    </div>
+    <div id="editorList" class="editor-scroll"></div>
+    <div style="display:flex; flex-wrap:wrap; gap:0.55rem; justify-content:flex-end;">
+      <button type="button" id="resetBtn" class="ui-btn">Zurücksetzen</button>
+      <button type="button" id="copyBtn" class="ui-btn">Code-Block kopieren</button>
+      <button type="button" id="exportHtmlBtn" class="ui-btn primary">index.html herunterladen</button>
+    </div>
+  </div>
+</div>
+
+<div id="toastMsg" class="toast-msg"></div>
+<audio id="audioEl" preload="metadata"></audio>
+
+<script>
+const ENSEMBLE_INSTRUMENTS = [
+  { name: "Piano", icon: "&#127929;" },
+  { name: "Violine", icon: "&#127931;" },
+  { name: "Flöte", icon: "&#127926;" },
+  { name: "Altsaxophon", icon: "&#127927;" },
+  { name: "Djembe", icon: "&#129688;" },
+  { name: "Schlagzeug", icon: "&#129345;" }
+];
+
+const DEFAULT_DOORS = [
+  { day: 1, title: "Erster Dezembermorgen", instruments: ["Piano"], note: "Der Auftakt in den Dezember – ein kleines, warmes Motiv nur für dich.", audioUrl: "", tempo: "Andante teneramente", chord: [261.63, 329.63, 392.00, 493.88] },
+  { day: 2, title: "Winterlicht am Fenster", instruments: ["Piano", "Violine"], note: "Leise Akkorde und eine sanfte Geigenlinie für einen ruhigen Abend.", audioUrl: "", tempo: "Adagio cantabile", chord: [220.00, 261.63, 329.63, 392.00] },
+  { day: 3, title: "Kleiner Tanz im Schnee", instruments: ["Violine"], note: "Eine verspielte Linie für Solo-Violine – fast wie erste Schneeflocken.", audioUrl: "", tempo: "Allegretto grazioso", chord: [293.66, 349.23, 440.00, 523.25] },
+  { day: 4, title: "Abendspaziergang", instruments: ["Flöte"], note: "Klar, luftig und unbeschwert – genau wie unsere Gespräche.", audioUrl: "", tempo: "Moderato dolce", chord: [349.23, 440.00, 523.25, 659.25] },
+  { day: 5, title: "Vorfreude", instruments: ["Piano"], note: "Ein kurzes Stück über dieses schöne Gefühl, wenn man sich auf jemanden freut.", audioUrl: "", tempo: "Con moto", chord: [261.63, 329.63, 392.00, 587.33] },
+  { day: 6, title: "Nikolaus-Miniatur", instruments: ["Djembe", "Flöte"], note: "Zum Nikolaus treffen heute zum ersten Mal Djembe und Flöte aufeinander.", audioUrl: "", tempo: "Vivace scherzando", chord: [392.00, 493.88, 587.33, 659.25] },
+  { day: 7, title: "Sonntagsruhe", instruments: ["Piano"], note: "Zum Durchatmen am zweiten Advent.", audioUrl: "", tempo: "Lento", chord: [196.00, 246.94, 293.66, 369.99] },
+  { day: 8, title: "Melodie für Zwischendurch", instruments: ["Altsaxophon"], note: "Ein warmer Saxophon-Klang für den Montagabend.", audioUrl: "", tempo: "Andante espressivo", chord: [233.08, 293.66, 349.23, 440.00] },
+  { day: 9, title: "Zwei Stimmen", instruments: ["Flöte", "Piano"], note: "Ein kleiner musikalischer Dialog zwischen Flöte und Klavier.", audioUrl: "", tempo: "Allegretto", chord: [261.63, 329.63, 440.00, 493.88] },
+  { day: 10, title: "Funkenflug", instruments: ["Violine", "Piano"], note: "Ein etwas lebhafteres Duett mit kleinen Überraschungen.", audioUrl: "", tempo: "Allegro non troppo", chord: [293.66, 369.99, 440.00, 587.33] },
+  { day: 11, title: "Puls im Dunkeln", instruments: ["Djembe", "Flöte"], note: "Rhythmisch und erdig – ein kleiner Groove für den Abend.", audioUrl: "", tempo: "Groove moderato", chord: [220.00, 293.66, 329.63, 440.00] },
+  { day: 12, title: "Mitternachtsblau", instruments: ["Altsaxophon", "Piano"], note: "Späte Stunde, weiche Harmonien und ein bisschen Jazz-Gefühl.", audioUrl: "", tempo: "Ballad", chord: [174.61, 220.00, 261.63, 329.63] },
+  { day: 13, title: "Sternenstaub", instruments: ["Violine", "Flöte"], note: "Zwei hohe Stimmen, die sich umspielen.", audioUrl: "", tempo: "Grazioso", chord: [329.63, 392.00, 493.88, 659.25] },
+  { day: 14, title: "Dritter Advent", instruments: ["Violine", "Flöte", "Piano"], note: "Schon drei Kerzen – und die Besetzung wächst weiter.", audioUrl: "", tempo: "Andante con moto", chord: [261.63, 329.63, 392.00, 493.88] },
+  { day: 15, title: "Kleiner Groove", instruments: ["Djembe", "Schlagzeug", "Piano"], note: "Heute kommt das Schlagzeug dazu – einfach zum Mitnicken.", audioUrl: "", tempo: "Ritmico", chord: [246.94, 293.66, 369.99, 440.00] },
+  { day: 16, title: "Winterwald", instruments: ["Flöte", "Altsaxophon", "Piano"], note: "Warme Bläserfarben treffen auf ruhige Klavierakkorde.", audioUrl: "", tempo: "Moderato", chord: [220.00, 261.63, 349.23, 440.00] },
+  { day: 17, title: "Unterwegs", instruments: ["Violine", "Djembe", "Piano"], note: "Ein Stück voller Bewegung und Vorwärtsdrang.", audioUrl: "", tempo: "Allegro", chord: [293.66, 349.23, 440.00, 523.25] },
+  { day: 18, title: "Leises Lächeln", instruments: ["Altsaxophon", "Violine"], note: "Eine kleine kammermusikalische Skizze.", audioUrl: "", tempo: "Dolce", chord: [261.63, 311.13, 392.00, 466.16] },
+  { day: 19, title: "Kurz vor dem Ziel", instruments: ["Flöte", "Violine", "Schlagzeug"], note: "Leichtfüßig und gespannt auf die letzten Tage.", audioUrl: "", tempo: "Vivace", chord: [349.23, 440.00, 523.25, 659.25] },
+  { day: 20, title: "Kaminfeuer", instruments: ["Altsaxophon", "Violine", "Piano"], note: "Ein warmes Trio für einen kalten Dezemberabend.", audioUrl: "", tempo: "Andante", chord: [196.00, 246.94, 329.63, 392.00] },
+  { day: 21, title: "Der Rhythmus dahinter", instruments: ["Djembe", "Schlagzeug"], note: "Ein kleiner Vorgeschmack auf den Groove, der dich am 24. erwartet.", audioUrl: "", tempo: "Energico", chord: [220.00, 277.18, 329.63, 440.00] },
+  { day: 22, title: "Die Harmonien", instruments: ["Piano"], note: "Die Akkordfolge des großen Finales – hier noch ganz pur auf dem Klavier.", audioUrl: "", tempo: "Adagio", chord: [261.63, 329.63, 392.00, 493.88] },
+  { day: 23, title: "Die Melodie", instruments: ["Violine", "Flöte", "Altsaxophon"], note: "Morgen kommt alles zusammen – heute schon einmal die Hauptmelodie.", audioUrl: "", tempo: "Espressivo", chord: [293.66, 369.99, 440.00, 587.33] },
+  { day: 24, title: "Finale für Lena", instruments: ["Piano", "Violine", "Flöte", "Altsaxophon", "Djembe", "Schlagzeug"], note: "Frohe Weihnachten, Lena! Hier ist das große Ensemble-Stück mit allen Instrumenten, die du dir gewünscht hast – als Abschluss unserer 24 Tage.", audioUrl: "", tempo: "Maestoso & Con Gioia", chord: [261.63, 329.63, 392.00, 493.88, 587.33] }
+];
+
+const DATA_STORE_KEY = 'ricco_lena_advent_2026_data';
+const FAV_STORE_KEY = 'ricco_lena_advent_2026_favs';
+const SETTINGS_STORE_KEY = 'ricco_lena_advent_2026_settings';
+const DEFAULT_SETTINGS = { whatsappPhone: '' };
+
+let doors = [];
+let settings = { ...DEFAULT_SETTINGS };
+let favorites = [];
+let onlyFavorites = false;
+let activeShape = 'classic';
+let isShuffled = false;
+let doorOrder = Array.from({ length: 24 }, (_, i) => i + 1);
+let chaosLayout = [];
+let previewMode = false;
+let currentDoor = null;
+let finaleActive = false;
+let isLooping = false;
+
+// Raster-Formen mit jeweils exakt 24 Positionen (große Kärtchen: 112x112px)
+const GRID_SHAPES = {
+  heart: {
+    cols: 7,
+    slots: [
+      {c:2,r:1},{c:3,r:1},{c:5,r:1},{c:6,r:1},
+      {c:1,r:2},{c:2,r:2},{c:3,r:2},{c:4,r:2},{c:5,r:2},{c:6,r:2},{c:7,r:2},
+      {c:1,r:3},{c:2,r:3},{c:3,r:3},{c:4,r:3},{c:5,r:3},{c:6,r:3},{c:7,r:3},
+      {c:2,r:4},{c:3,r:4},{c:4,r:4},{c:5,r:4},{c:6,r:4},
+      {c:4,r:5}
+    ]
+  },
+  sixseven: {
+    cols: 8,
+    slots: [
+      {c:2,r:1},{c:3,r:1},{c:4,r:1},
+      {c:1,r:2},
+      {c:1,r:3},{c:2,r:3},{c:3,r:3},
+      {c:1,r:4},{c:4,r:4},
+      {c:1,r:5},{c:2,r:5},{c:3,r:5},{c:4,r:5},
+      {c:6,r:1},{c:7,r:1},{c:8,r:1},
+      {c:8,r:2},{c:7,r:2},
+      {c:7,r:3},{c:6,r:3},
+      {c:6,r:4},{c:7,r:4},
+      {c:6,r:5},{c:7,r:5}
+    ]
+  },
+  tree: {
+    cols: 7,
+    slots: [
+      {c:4,r:1},
+      {c:3,r:2},{c:4,r:2},{c:5,r:2},
+      {c:2,r:3},{c:3,r:3},{c:4,r:3},{c:5,r:3},{c:6,r:3},
+      {c:2,r:4},{c:3,r:4},{c:4,r:4},{c:5,r:4},{c:6,r:4},
+      {c:1,r:5},{c:2,r:5},{c:3,r:5},{c:4,r:5},{c:5,r:5},{c:6,r:5},{c:7,r:5},
+      {c:3,r:6},{c:5,r:6},{c:4,r:6}
+    ]
+  }
+};
+
+// Polarkoordinaten-Stern (5-zackig, 24 Punkte, Tag 24 im Zentrum)
+function buildStarCoords() {
+  const cx = 520, cy = 385, rOut = 325, rIn = 148;
+  const outer = [], inner = [], edgeMids = [];
+  for (let k = 0; k < 5; k++) {
+    const aOut = (-90 + k * 72) * Math.PI / 180;
+    const aIn = (-90 + 36 + k * 72) * Math.PI / 180;
+    outer.push({ x: cx + rOut * Math.cos(aOut), y: cy + rOut * Math.sin(aOut) });
+    inner.push({ x: cx + rIn * Math.cos(aIn), y: cy + rIn * Math.sin(aIn) });
+  }
+  for (let k = 0; k < 5; k++) {
+    const o1 = outer[k], i1 = inner[k], o2 = outer[(k + 1) % 5];
+    edgeMids.push({ x: (o1.x + i1.x) / 2, y: (o1.y + i1.y) / 2 });
+    edgeMids.push({ x: (i1.x + o2.x) / 2, y: (i1.y + o2.y) / 2 });
+  }
+  const innerRing = [0, 1, 2].map(i => {
+    const a = (-90 + i * 120) * Math.PI / 180;
+    return { x: cx + 76 * Math.cos(a), y: cy + 76 * Math.sin(a) };
+  });
+  const sorted = [...outer, ...inner, ...edgeMids, ...innerRing].sort((a, b) =>
+    Math.abs(a.y - b.y) > 16 ? a.y - b.y : a.x - b.x
+  );
+  return [...sorted, { x: cx, y: cy }];
+}
+
+// Perfekt symmetrische 6-armige Schneeflocke (24 Punkte, Tag 24 ganz unten an der untersten Spitze)
+function buildSnowflakeCoords() {
+  const cx = 520, cy = 380, armRadii = [112, 218, 322];
+  const pts = [];
+  for (let arm = 0; arm < 6; arm++) {
+    const rad = (-90 + arm * 60) * Math.PI / 180;
+    for (const r of armRadii) {
+      pts.push({
+        x: cx + r * Math.cos(rad),
+        y: cy + r * Math.sin(rad),
+        isBottomTip: arm === 3 && r === 322
+      });
+    }
+  }
+  for (let m = 0; m < 6; m++) {
+    const rad = (-60 + m * 60) * Math.PI / 180;
+    pts.push({
+      x: cx + 172 * Math.cos(rad),
+      y: cy + 172 * Math.sin(rad),
+      isBottomTip: false
+    });
+  }
+  const bottomTip = pts.find(p => p.isBottomTip);
+  const rest = pts.filter(p => !p.isBottomTip).sort((a, b) =>
+    Math.abs(a.y - b.y) > 16 ? a.y - b.y : a.x - b.x
+  );
+  return [...rest, bottomTip];
+}
+
+// Lebkuchenmann (24 Punkte: runder Kopf oben, ausgebreitete Arme, Oberkörper, 2 Beine, Tag 24 in der Brustmitte)
+function buildGingerbreadCoords() {
+  // 23 Körper-Konturpunkte + Punkt 24 exakt auf der Brust (520, 355)
+  return [
+    // Kopf (7 Punkte)
+    { x: 520, y: 74, w: 94, h: 94, rot: 0, extraClass: 'gingerbread-card' },
+    { x: 446, y: 112, w: 92, h: 92, rot: -10, extraClass: 'gingerbread-card' },
+    { x: 594, y: 112, w: 92, h: 92, rot: 10, extraClass: 'gingerbread-card' },
+    { x: 462, y: 194, w: 92, h: 92, rot: -6, extraClass: 'gingerbread-card' },
+    { x: 578, y: 194, w: 92, h: 92, rot: 6, extraClass: 'gingerbread-card' },
+
+    // Ausgebreitete Arme links & rechts (je 3 Punkte)
+    { x: 356, y: 266, w: 94, h: 94, rot: -4, extraClass: 'gingerbread-card' },
+    { x: 254, y: 266, w: 94, h: 94, rot: -6, extraClass: 'gingerbread-card' },
+    { x: 154, y: 274, w: 94, h: 94, rot: -10, extraClass: 'gingerbread-card' },
+
+    { x: 684, y: 266, w: 94, h: 94, rot: 4, extraClass: 'gingerbread-card' },
+    { x: 786, y: 266, w: 94, h: 94, rot: 6, extraClass: 'gingerbread-card' },
+    { x: 886, y: 274, w: 94, h: 94, rot: 10, extraClass: 'gingerbread-card' },
+
+    // Oberkörper-Rahmen (6 Punkte um die Brust herum)
+    { x: 432, y: 318, w: 94, h: 94, rot: 0, extraClass: 'gingerbread-card' },
+    { x: 608, y: 318, w: 94, h: 94, rot: 0, extraClass: 'gingerbread-card' },
+    { x: 432, y: 414, w: 94, h: 94, rot: 0, extraClass: 'gingerbread-card' },
+    { x: 608, y: 414, w: 94, h: 94, rot: 0, extraClass: 'gingerbread-card' },
+    { x: 520, y: 462, w: 92, h: 92, rot: 0, extraClass: 'gingerbread-card' },
+
+    // Zwei Beine unten (je 3 Punkte)
+    { x: 432, y: 516, w: 92, h: 92, rot: 5, extraClass: 'gingerbread-card' },
+    { x: 398, y: 608, w: 92, h: 92, rot: 8, extraClass: 'gingerbread-card' },
+    { x: 364, y: 698, w: 94, h: 94, rot: 10, extraClass: 'gingerbread-card' },
+
+    { x: 608, y: 516, w: 92, h: 92, rot: -5, extraClass: 'gingerbread-card' },
+    { x: 642, y: 608, w: 92, h: 92, rot: -8, extraClass: 'gingerbread-card' },
+    { x: 676, y: 698, w: 94, h: 94, rot: -10, extraClass: 'gingerbread-card' },
+
+    // Kleiner unterer Knopf
+    { x: 520, y: 266, w: 88, h: 88, rot: 0, extraClass: 'gingerbread-card' },
+
+    // Punkt 24: Herz/Knopf genau in der Brustmitte
+    { x: 520, y: 362, w: 102, h: 102, rot: 0, extraClass: 'gingerbread-card' }
+  ];
+}
+
+// Shaun das Schaf (24 Punkte: weiße Wolllocke oben, schmales dunkles Gesicht + abstehende Ohren,
+// wollig-heller Körper in der Mitte mit Tag 24 als Herz/Glöckchen, vier dünne dunkle Beine unten)
+function buildShaunCoords() {
+  return [
+    // 1. Weiße, flauschige Wolllocke oben auf dem Kopf (3 Punkte)
+    { x: 468, y: 74, w: 92, h: 88, rot: -8, extraClass: 'shaun-wool' },
+    { x: 520, y: 64, w: 98, h: 92, rot: 0, extraClass: 'shaun-wool' },
+    { x: 572, y: 74, w: 92, h: 88, rot: 8, extraClass: 'shaun-wool' },
+
+    // 2. Abstehende Ohren links & rechts + schmales dunkles Schiefer-Gesicht (5 Punkte)
+    { x: 356, y: 156, w: 102, h: 74, rot: -16, extraClass: 'shaun-dark shaun-ear' },
+    { x: 484, y: 152, w: 84, h: 92, rot: 0, extraClass: 'shaun-dark' },
+    { x: 556, y: 152, w: 84, h: 92, rot: 0, extraClass: 'shaun-dark' },
+    { x: 684, y: 156, w: 102, h: 74, rot: 16, extraClass: 'shaun-dark shaun-ear' },
+    { x: 520, y: 238, w: 86, h: 90, rot: 0, extraClass: 'shaun-dark' },
+
+    // 3. Wollig-heller Körper in der Mitte (11 Punkte + Punkt 24 in der Mitte)
+    { x: 374, y: 318, w: 98, h: 94, rot: -4, extraClass: 'shaun-wool' },
+    { x: 452, y: 314, w: 96, h: 94, rot: 0, extraClass: 'shaun-wool' },
+    { x: 588, y: 314, w: 96, h: 94, rot: 0, extraClass: 'shaun-wool' },
+    { x: 666, y: 318, w: 98, h: 94, rot: 4, extraClass: 'shaun-wool' },
+
+    { x: 336, y: 408, w: 98, h: 94, rot: -5, extraClass: 'shaun-wool' },
+    { x: 428, y: 408, w: 98, h: 96, rot: 0, extraClass: 'shaun-wool' },
+    { x: 612, y: 408, w: 98, h: 96, rot: 0, extraClass: 'shaun-wool' },
+    { x: 704, y: 408, w: 98, h: 94, rot: 5, extraClass: 'shaun-wool' },
+
+    { x: 382, y: 498, w: 98, h: 92, rot: -3, extraClass: 'shaun-wool' },
+    { x: 474, y: 500, w: 98, h: 92, rot: 0, extraClass: 'shaun-wool' },
+    { x: 566, y: 500, w: 98, h: 92, rot: 0, extraClass: 'shaun-wool' },
+    { x: 658, y: 498, w: 98, h: 92, rot: 3, extraClass: 'shaun-wool' },
+
+    // 4. Vier dünne dunkle Beine ganz unten (4 nebeneinander) + Punkt 24 als Herz/Glöckchen im Zentrum
+    { x: 374, y: 636, w: 72, h: 146, rot: 0, extraClass: 'shaun-dark' },
+    { x: 468, y: 636, w: 72, h: 146, rot: 0, extraClass: 'shaun-dark' },
+    { x: 572, y: 636, w: 72, h: 146, rot: 0, extraClass: 'shaun-dark' },
+    { x: 666, y: 636, w: 72, h: 146, rot: 0, extraClass: 'shaun-dark' },
+    { x: 520, y: 408, w: 102, h: 102, rot: 0, extraClass: 'shaun-wool' }
+  ];
+}
+
+// Organisches "Durcheinander" ohne Überlappung (-16° bis +16°)
+function generateChaosLayout() {
+  const W = 1040, H = 760;
+  const padX = 82, padY = 82;
+  const minDist = 114;
+  const placed = [];
+
+  for (let i = 0; i < 24; i++) {
+    let best = null;
+    let bestMinD = -1;
+
+    for (let attempt = 0; attempt < 260; attempt++) {
+      const x = padX + Math.random() * (W - padX * 2);
+      const y = padY + Math.random() * (H - padY * 2);
+      let dMin = Infinity;
+      for (const p of placed) {
+        const d = Math.hypot(x - p.x, y - p.y);
+        if (d < dMin) dMin = d;
+      }
+      if (dMin >= minDist) {
+        best = { x, y };
+        break;
+      }
+      if (dMin > bestMinD) {
+        bestMinD = dMin;
+        best = { x, y };
+      }
+    }
+
+    const rot = Number(((Math.random() * 32) - 16).toFixed(1));
+    placed.push({ x: Math.round(best.x), y: Math.round(best.y), rot });
+  }
+  chaosLayout = placed;
+}
+
+const POLAR_SHAPES = {
+  star: buildStarCoords(),
+  snowflake: buildSnowflakeCoords(),
+  gingerbread: buildGingerbreadCoords(),
+  shaun: buildShaunCoords()
+};
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(DATA_STORE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length === 24) {
+        doors = parsed.map((item, idx) => ({
+          ...DEFAULT_DOORS[idx],
+          ...item,
+          instruments: Array.isArray(item.instruments) ? item.instruments : DEFAULT_DOORS[idx].instruments
+        }));
+      } else {
+        doors = JSON.parse(JSON.stringify(DEFAULT_DOORS));
+      }
+    } else {
+      doors = JSON.parse(JSON.stringify(DEFAULT_DOORS));
+    }
+  } catch (e) {
+    doors = JSON.parse(JSON.stringify(DEFAULT_DOORS));
+  }
+
+  try {
+    const favRaw = localStorage.getItem(FAV_STORE_KEY);
+    if (favRaw) {
+      const favParsed = JSON.parse(favRaw);
+      if (Array.isArray(favParsed)) favorites = favParsed;
+    }
+  } catch (e) {
+    favorites = [];
+  }
+
+  try {
+    const setRaw = localStorage.getItem(SETTINGS_STORE_KEY);
+    if (setRaw) {
+      settings = { ...DEFAULT_SETTINGS, ...JSON.parse(setRaw) };
+    }
+  } catch (e) {
+    settings = { ...DEFAULT_SETTINGS };
+  }
+}
+
+function saveData() {
+  try { localStorage.setItem(DATA_STORE_KEY, JSON.stringify(doors)); } catch (e) {}
+}
+
+function saveSettings() {
+  try { localStorage.setItem(SETTINGS_STORE_KEY, JSON.stringify(settings)); } catch (e) {}
+}
+
+function saveFavorites() {
+  try { localStorage.setItem(FAV_STORE_KEY, JSON.stringify(favorites)); } catch (e) {}
+}
+
+function computeDoorOrder() {
+  const arr = Array.from({ length: 24 }, (_, i) => i + 1);
+  if (isShuffled) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+  }
+  doorOrder = arr;
+}
+
+function isDoorOpen(day) {
+  if (previewMode) return true;
+  return new Date() >= new Date(2026, 11, day, 0, 0, 0, 0);
+}
+
+// Berechnet den Advents-Fortschritt (geöffnete Türchen 0..24 + 4 Adventssonntage 2026)
+function getAtmosphereProgress() {
+  const now = new Date();
+  let openCount = 0;
+  for (let d = 1; d <= 24; d++) {
+    if (isDoorOpen(d)) openCount++;
+  }
+
+  // Die 4 Adventssonntage 2026: 29. Nov, 6. Dez, 13. Dez, 20. Dez
+  const adventDates = [
+    new Date(2026, 10, 29, 0, 0, 0, 0),
+    new Date(2026, 11, 6, 0, 0, 0, 0),
+    new Date(2026, 11, 13, 0, 0, 0, 0),
+    new Date(2026, 11, 20, 0, 0, 0, 0)
+  ];
+
+  let litAdventCount = 0;
+  if (previewMode) {
+    litAdventCount = 4;
+  } else {
+    adventDates.forEach(dt => {
+      if (now >= dt) litAdventCount++;
+    });
+  }
+
+  return { openCount, litAdventCount };
+}
+
+// Aktualisiert Kerzenschein, die 4 Advents-Lichtquellen und die wachsende Hintergrund-Partitur
+function updateAtmosphere() {
+  const { openCount, litAdventCount } = getAtmosphereProgress();
+  const warmth = openCount / 24;
+  document.documentElement.style.setProperty('--advent-warmth', warmth.toFixed(3));
+
+  for (let i = 1; i <= 4; i++) {
+    const orb = document.getElementById(`adventOrb${i}`);
+    if (orb) orb.classList.toggle('lit', i <= litAdventCount);
+  }
+
+  const svg = document.getElementById('bgScoreSvg');
+  if (!svg) return;
+
+  // Zwei zarte Notensysteme oben und unten im Hintergrund
+  const systems = [
+    { yTop: 155, startDay: 1, endDay: 12 },
+    { yTop: 725, startDay: 13, endDay: 24 }
+  ];
+
+  let markup = '';
+  systems.forEach(sys => {
+    for (let l = 0; l < 5; l++) {
+      const y = sys.yTop + l * 9;
+      markup += `<line x1="70" y1="${y}" x2="1370" y2="${y}" stroke="rgba(212, 175, 55, 0.055)" stroke-width="1"/>`;
+    }
+    // Dezenter Violinschlüssel am Anfang jeder Zeile
+    markup += `<text x="82" y="${sys.yTop + 33}" font-family="Georgia, serif" font-size="44" fill="rgba(212, 175, 55, 0.08)">&#119070;</text>`;
+
+    // Taktstriche
+    [430, 750, 1070, 1368].forEach(bx => {
+      markup += `<line x1="${bx}" y1="${sys.yTop}" x2="${bx}" y2="${sys.yTop + 36}" stroke="rgba(212, 175, 55, 0.065)" stroke-width="1"/>`;
+    });
+
+    // Pro geöffnetem Tag wächst eine Note auf den Linien
+    const pitchSteps = [4, 2, 1, 3, 0, 2, 1, 4, 3, 1, 2, 0];
+    for (let d = sys.startDay; d <= sys.endDay; d++) {
+      if (d > openCount) continue;
+      const idx = d - sys.startDay;
+      const nx = 165 + idx * 98;
+      const step = pitchSteps[idx % pitchSteps.length];
+      const ny = sys.yTop + step * 9;
+      const stemUp = step >= 2;
+      const stemX = stemUp ? nx + 4.5 : nx - 4.5;
+      const stemY2 = stemUp ? ny - 26 : ny + 26;
+      const isHollow = d === 12 || d === 24;
+
+      markup += `<ellipse cx="${nx}" cy="${ny}" rx="5" ry="3.7" transform="rotate(-16 ${nx} ${ny})" fill="${isHollow ? 'none' : 'rgba(245, 215, 127, 0.13)'}" stroke="rgba(245, 215, 127, 0.15)" stroke-width="1.2"/>`;
+      markup += `<line x1="${stemX}" y1="${ny}" x2="${stemX}" y2="${stemY2}" stroke="rgba(245, 215, 127, 0.13)" stroke-width="1.2"/>`;
+    }
+  });
+
+  svg.innerHTML = markup;
+}
+
+function showToast(text) {
+  const el = document.getElementById('toastMsg');
+  el.textContent = text;
+  el.classList.add('visible');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => el.classList.remove('visible'), 3100);
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// Live-Mitternachts-Countdown
+function updateCountdown() {
+  const textEl = document.getElementById('countdownText');
+  if (!textEl) return;
+
+  if (previewMode) {
+    textEl.textContent = 'Vorschau-Modus aktiv · Alle 24 Türchen zum Testen geöffnet';
+    return;
+  }
+
+  const now = new Date();
+  const dec1 = new Date(2026, 11, 1, 0, 0, 0, 0);
+  const dec24 = new Date(2026, 11, 24, 0, 0, 0, 0);
+  const pad = n => String(n).padStart(2, '0');
+
+  if (now >= dec24) {
+    textEl.textContent = 'Alle 24 Türchen sind geöffnet · Frohe Weihnachten!';
+    return;
+  }
+
+  let targetDate, targetDay;
+  if (now < dec1) {
+    targetDate = dec1;
+    targetDay = 1;
+  } else {
+    targetDay = now.getDate() + 1;
+    targetDate = new Date(2026, 11, targetDay, 0, 0, 0, 0);
+  }
+
+  const diffSec = Math.max(0, Math.floor((targetDate - now) / 1000));
+  const days = Math.floor(diffSec / 86400);
+  const hours = Math.floor((diffSec % 86400) / 3600);
+  const mins = Math.floor((diffSec % 3600) / 60);
+  const secs = diffSec % 60;
+
+  if (now < dec1) {
+    textEl.textContent = `Türchen 01 öffnet in ${days} ${days === 1 ? 'Tag' : 'Tagen'}, ${pad(hours)}:${pad(mins)}:${pad(secs)}`;
+  } else {
+    textEl.textContent = `Türchen ${pad(targetDay)} öffnet um 00:00 Uhr in ${pad(hours)}:${pad(mins)}:${pad(secs)}`;
+  }
+}
+
+// Ensemble-Instrumentenleiste
+function renderEnsembleStrip() {
+  const strip = document.getElementById('ensembleStrip');
+  if (!strip) return;
+
+  const unlockedInstruments = new Set();
+  if (finaleActive) {
+    ENSEMBLE_INSTRUMENTS.forEach(i => unlockedInstruments.add(i.name));
+  } else {
+    doors.forEach(d => {
+      if (isDoorOpen(d.day) && Array.isArray(d.instruments)) {
+        d.instruments.forEach(inst => unlockedInstruments.add(inst));
+      }
+    });
+  }
+
+  strip.innerHTML = '';
+  ENSEMBLE_INSTRUMENTS.forEach(inst => {
+    const active = unlockedInstruments.has(inst.name);
+    const chip = document.createElement('div');
+    chip.className = `inst-chip ${active ? 'active' : ''}`;
+    chip.title = active
+      ? `${inst.name} ist bereits erklungen`
+      : `${inst.name} – spielt im großen Finale am 24.12. mit`;
+    chip.innerHTML = `<span>${inst.icon}</span><span>${inst.name}</span>`;
+    strip.appendChild(chip);
+  });
+}
+
+function buildDoorCard(door, extraClass = '') {
+  const open = isDoorOpen(door.day);
+  const isFav = favorites.includes(door.day);
+  const dimmed = onlyFavorites && !isFav;
+
+  const card = document.createElement('div');
+  card.className = `door-card ${open ? 'unlocked' : 'locked'} ${dimmed ? 'filtered-out' : ''} ${extraClass}`.trim();
+  card.innerHTML = `
+    <span class="orn-corner tl"></span>
+    <span class="orn-corner br"></span>
+    ${isFav ? '<span class="fav-badge" title="Favorit">&#9733;</span>' : ''}
+    <div class="door-num">${door.day}</div>
+    <div class="door-sub">${
+      open
+        ? `<span class="note-icon">&#9834;</span><span class="door-title-mini">${escHtml(door.title)}</span>`
+        : `<span class="crystal-icon">&#10052;</span> ${door.day}. Dez`
+    }</div>
+  `;
+
+  card.addEventListener('click', () => {
+    if (!isDoorOpen(door.day)) {
+      showToast(`Türchen ${door.day} öffnet sich erst am ${door.day}. Dezember um 00:00 Uhr.`);
+      return;
+    }
+    openDoorModal(door);
+  });
+
+  return card;
+}
+
+function renderCalendar() {
+  updateAtmosphere();
+  renderEnsembleStrip();
+  const stageScroll = document.querySelector('.stage-scroll');
+  const stage = document.getElementById('calendarStage');
+  stage.innerHTML = '';
+
+  const isClassic = activeShape === 'classic';
+  stage.classList.toggle('is-classic', isClassic);
+  if (stageScroll) {
+    stageScroll.classList.toggle('no-scroll', isClassic);
+  }
+
+  if (isClassic) {
+    const grid = document.createElement('div');
+    grid.className = 'classic-grid';
+    doorOrder.forEach(num => {
+      const door = doors.find(d => d.day === num);
+      grid.appendChild(buildDoorCard(door));
+    });
+    stage.appendChild(grid);
+    return;
+  }
+
+  if (GRID_SHAPES[activeShape]) {
+    const cfg = GRID_SHAPES[activeShape];
+    const grid = document.createElement('div');
+    grid.className = 'grid-shape';
+    grid.style.gridTemplateColumns = `repeat(${cfg.cols}, 112px)`;
+    doorOrder.forEach((num, idx) => {
+      const door = doors.find(d => d.day === num);
+      const pos = cfg.slots[idx];
+      let themeClass = '';
+      if (activeShape === 'heart') {
+        themeClass = 'theme-heart';
+      } else if (activeShape === 'tree') {
+        themeClass = pos.r === 6 ? 'theme-trunk' : 'theme-tree';
+      }
+      const card = buildDoorCard(door, themeClass);
+      card.style.gridColumn = pos.c;
+      card.style.gridRow = pos.r;
+      grid.appendChild(card);
+    });
+    stage.appendChild(grid);
+    return;
+  }
+
+  if (activeShape === 'chaos') {
+    if (!chaosLayout || chaosLayout.length !== 24) generateChaosLayout();
+    const polarBox = document.createElement('div');
+    polarBox.className = 'polar-stage';
+    doorOrder.forEach((num, idx) => {
+      const door = doors.find(d => d.day === num);
+      const pt = chaosLayout[idx];
+      const card = buildDoorCard(door);
+      card.style.left = `${pt.x}px`;
+      card.style.top = `${pt.y}px`;
+      card.style.setProperty('--rot', `${pt.rot}deg`);
+      polarBox.appendChild(card);
+    });
+    stage.appendChild(polarBox);
+    return;
+  }
+
+  const pts = POLAR_SHAPES[activeShape];
+  if (pts) {
+    const polarBox = document.createElement('div');
+    polarBox.className = 'polar-stage';
+    const shapeTheme = activeShape === 'star'
+      ? 'theme-star'
+      : (activeShape === 'snowflake' ? 'theme-snowflake' : '');
+    doorOrder.forEach((num, idx) => {
+      const door = doors.find(d => d.day === num);
+      const pt = pts[idx];
+      const card = buildDoorCard(door, pt.extraClass || shapeTheme);
+      card.style.left = `${pt.x}px`;
+      card.style.top = `${pt.y}px`;
+      card.style.setProperty('--rot', `${pt.rot || 0}deg`);
+      if (pt.w) card.style.setProperty('--card-w', `${pt.w}px`);
+      if (pt.h) card.style.setProperty('--card-h', `${pt.h}px`);
+      if (pt.w && pt.w < 80) card.style.setProperty('--num-size', '1.55rem');
+      polarBox.appendChild(card);
+    });
+    stage.appendChild(polarBox);
+  }
+}
+
+// Audio-Player, WebAudio-Synth, Loop, Beat-Aura & WAV-Generator
+let audioCtx = null;
+let analyserNode = null;
+let analyserData = null;
+let mediaSourceConnected = false;
+let synthBeatLevel = 0;
+let synthTimer = null;
+let progressTimer = null;
+let waveRaf = null;
+let isPlaying = false;
+let synthElapsed = 0;
+const SYNTH_DURATION = 16;
+
+function setBeatEnergy(val) {
+  const clamped = Math.max(0, Math.min(1, val));
+  document.documentElement.style.setProperty('--beat-energy', clamped.toFixed(3));
+}
+
+function initWaveBars() {
+  const container = document.getElementById('waveBars');
+  container.innerHTML = '';
+  for (let i = 0; i < 24; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'wave-bar';
+    container.appendChild(bar);
+  }
+}
+
+function animateWave() {
+  const bars = document.querySelectorAll('#waveBars .wave-bar');
+  if (!isPlaying) {
+    bars.forEach(b => b.style.height = '5px');
+    synthBeatLevel = 0;
+    setBeatEnergy(0);
+    return;
+  }
+
+  let energy = 0;
+  if (analyserNode && analyserData && mediaSourceConnected) {
+    analyserNode.getByteFrequencyData(analyserData);
+    let sum = 0;
+    const bins = Math.min(28, analyserData.length);
+    for (let i = 0; i < bins; i++) sum += analyserData[i];
+    energy = Math.min(1, (sum / (bins * 255)) * 1.85);
+    bars.forEach((b, i) => {
+      const val = analyserData[(i * 2) % analyserData.length] / 255;
+      b.style.height = (5 + Math.round(val * 26)) + 'px';
+    });
+  } else {
+    synthBeatLevel *= 0.91;
+    const pulse = Math.sin(Date.now() / 160) * 0.5 + 0.5;
+    energy = Math.min(1, synthBeatLevel * 0.85 + pulse * 0.25);
+    bars.forEach((b, i) => {
+      const h = 6 + Math.round((Math.sin(Date.now() / 150 + i * 0.62) * 0.5 + 0.5) * (14 + energy * 14));
+      b.style.height = h + 'px';
+    });
+  }
+
+  setBeatEnergy(energy);
+  waveRaf = requestAnimationFrame(animateWave);
+}
+
+function formatTime(sec) {
+  const s = Math.max(0, Math.floor(sec));
+  return `${Math.floor(s / 60)}:${(s % 60 < 10 ? '0' : '')}${s % 60}`;
+}
+
+function stopPlayback() {
+  const audioEl = document.getElementById('audioEl');
+  audioEl.pause();
+  audioEl.currentTime = 0;
+  clearInterval(synthTimer);
+  clearInterval(progressTimer);
+  cancelAnimationFrame(waveRaf);
+  isPlaying = false;
+  synthElapsed = 0;
+  synthBeatLevel = 0;
+  setBeatEnergy(0);
+  document.getElementById('playBtn').innerHTML = '&#9654;';
+  document.getElementById('seekFill').style.width = '0%';
+  document.getElementById('curTime').textContent = '0:00';
+  animateWave();
+}
+
+function triggerPianoNote(freq) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    synthBeatLevel = 1;
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const osc2 = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc2.type = 'sine';
+    osc.frequency.setValueAtTime(freq, now);
+    osc2.frequency.setValueAtTime(freq * 2, now);
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.exponentialRampToValueAtTime(0.11, now + 0.045);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 1.45);
+    osc.connect(gain);
+    osc2.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(now);
+    osc2.start(now);
+    osc.stop(now + 1.5);
+    osc2.stop(now + 1.5);
+  } catch (e) {}
+}
+
+function startSynthPreview(door) {
+  const notes = (door.chord && door.chord.length) ? door.chord : [261.63, 329.63, 392.00, 493.88];
+  let idx = 0;
+  triggerPianoNote(notes[0]);
+  synthTimer = setInterval(() => {
+    idx = (idx + 1) % notes.length;
+    triggerPianoNote(notes[idx]);
+  }, 880);
+
+  progressTimer = setInterval(() => {
+    synthElapsed += 0.1;
+    if (synthElapsed >= SYNTH_DURATION) {
+      if (isLooping) {
+        synthElapsed = 0;
+      } else {
+        stopPlayback();
+        return;
+      }
+    }
+    document.getElementById('seekFill').style.width = `${(synthElapsed / SYNTH_DURATION) * 100}%`;
+    document.getElementById('curTime').textContent = formatTime(synthElapsed);
+  }, 100);
+
+  isPlaying = true;
+  document.getElementById('playBtn').innerHTML = '&#10074;&#10074;';
+  animateWave();
+}
+
+function createWavBlob(chord) {
+  const sampleRate = 22050;
+  const duration = 8;
+  const numSamples = sampleRate * duration;
+  const buffer = new ArrayBuffer(44 + numSamples * 2);
+  const view = new DataView(buffer);
+  const writeAscii = (off, str) => {
+    for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i));
+  };
+
+  writeAscii(0, 'RIFF');
+  view.setUint32(4, 36 + numSamples * 2, true);
+  writeAscii(8, 'WAVE');
+  writeAscii(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeAscii(36, 'data');
+  view.setUint32(40, numSamples * 2, true);
+
+  const notes = (chord && chord.length) ? chord : [261.63, 329.63, 392.00, 493.88];
+  const stepLen = 0.8;
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / sampleRate;
+    const step = Math.floor(t / stepLen);
+    const localT = t - step * stepLen;
+    const freq = notes[step % notes.length];
+    const env = Math.min(1, localT / 0.04) * Math.exp(-2.6 * localT);
+    const sample = (Math.sin(2 * Math.PI * freq * t) + 0.35 * Math.sin(4 * Math.PI * freq * t)) * env * 0.25;
+    const clamped = Math.max(-1, Math.min(1, sample));
+    view.setInt16(44 + i * 2, clamped < 0 ? clamped * 0x8000 : clamped * 0x7FFF, true);
+  }
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
+function updateModalFavButton() {
+  const btn = document.getElementById('favToggleBtn');
+  if (!btn || !currentDoor) return;
+  const isFav = favorites.includes(currentDoor.day);
+  btn.classList.toggle('fav-active', isFav);
+  btn.innerHTML = isFav ? '&#9733; Favorit gespeichert' : '&#9734; Favorit';
+}
+
+function openDoorModal(door) {
+  stopPlayback();
+  currentDoor = door;
+  finaleActive = door.day === 24;
+  renderEnsembleStrip();
+
+  document.getElementById('modalDay').textContent = `${door.day}. Dezember 2026`;
+  document.getElementById('modalTitle').textContent = door.title;
+  document.getElementById('modalNote').textContent = door.note;
+  document.getElementById('sheetTitle').textContent = `Nr. ${door.day} – ${door.title}`;
+  document.getElementById('sheetTempo').textContent = door.tempo || 'Moderato';
+
+  const tagsEl = document.getElementById('modalTags');
+  tagsEl.innerHTML = '';
+  const insts = (Array.isArray(door.instruments) && door.instruments.length) ? door.instruments : ['Piano'];
+  insts.forEach(inst => {
+    const meta = ENSEMBLE_INSTRUMENTS.find(e => e.name === inst);
+    const chip = document.createElement('span');
+    chip.className = 'inst-tag';
+    chip.innerHTML = `${meta ? meta.icon + ' ' : ''}${escHtml(inst)}`;
+    tagsEl.appendChild(chip);
+  });
+
+  updateModalFavButton();
+
+  // Konzertprogramm-Rückblick nur am 24. Dezember einblenden
+  const programBox = document.getElementById('finaleProgram');
+  const programList = document.getElementById('finaleProgramList');
+  if (finaleActive) {
+    programList.innerHTML = '';
+    doors.forEach(d => {
+      const row = document.createElement('div');
+      row.className = `program-row ${d.day === 24 ? 'is-finale' : ''}`;
+      const dInsts = (Array.isArray(d.instruments) && d.instruments.length) ? d.instruments.join(', ') : 'Piano';
+      row.innerHTML = `
+        <span class="program-day-title"><span class="program-day-num">${String(d.day).padStart(2, '0')}.</span>${escHtml(d.title)}</span>
+        <span class="program-insts">${escHtml(dInsts)}</span>
+      `;
+      programList.appendChild(row);
+    });
+    programBox.classList.add('visible');
+  } else {
+    programBox.classList.remove('visible');
+  }
+
+  const audioEl = document.getElementById('audioEl');
+  audioEl.loop = isLooping;
+  const caption = document.getElementById('playerCaption');
+  if (door.audioUrl && door.audioUrl.trim()) {
+    audioEl.crossOrigin = 'anonymous';
+    audioEl.src = door.audioUrl.trim();
+    document.getElementById('durTime').textContent = '0:00';
+    caption.textContent = 'Originalaufnahme';
+  } else {
+    audioEl.removeAttribute('src');
+    document.getElementById('durTime').textContent = formatTime(SYNTH_DURATION);
+    caption.textContent = 'Klavier-Klangvorschau (bis MP3 hinterlegt ist)';
+  }
+
+  document.getElementById('doorModal').classList.add('open');
+}
+
+function openComposerEditor() {
+  const waInput = document.getElementById('waPhoneInput');
+  if (waInput) {
+    waInput.value = settings.whatsappPhone || '';
+    waInput.oninput = e => {
+      settings.whatsappPhone = e.target.value.replace(/[^0-9]/g, '');
+      saveSettings();
+    };
+  }
+
+  const list = document.getElementById('editorList');
+  list.innerHTML = '';
+  doors.forEach((door, idx) => {
+    const checkboxes = ENSEMBLE_INSTRUMENTS.map(inst => {
+      const checked = Array.isArray(door.instruments) && door.instruments.includes(inst.name) ? 'checked' : '';
+      return `<label class="editor-inst-chip"><input type="checkbox" data-idx="${idx}" data-inst="${inst.name}" ${checked}> ${inst.icon} ${inst.name}</label>`;
+    }).join('');
+
+    const card = document.createElement('div');
+    card.className = 'editor-card';
+    card.innerHTML = `
+      <h4>Türchen ${door.day}</h4>
+      <div class="editor-grid">
+        <input type="text" data-idx="${idx}" data-key="title" placeholder="Titel" value="${escHtml(door.title)}">
+        <input type="text" data-idx="${idx}" data-key="tempo" placeholder="Tempo (z. B. Andante)" value="${escHtml(door.tempo || '')}">
+        <input type="text" class="span-full" data-idx="${idx}" data-key="audioUrl" placeholder="MP3-Pfad (z. B. audio/tag${String(door.day).padStart(2, '0')}.mp3)" value="${escHtml(door.audioUrl || '')}">
+        <div class="editor-insts">${checkboxes}</div>
+        <textarea rows="2" class="span-full" data-idx="${idx}" data-key="note" placeholder="Persönliche Notiz">${escHtml(door.note)}</textarea>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+
+  list.querySelectorAll('input[type="text"], textarea').forEach(el => {
+    el.addEventListener('input', e => {
+      doors[Number(e.target.dataset.idx)][e.target.dataset.key] = e.target.value;
+      saveData();
+      renderCalendar();
+    });
+  });
+
+  list.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', e => {
+      const idx = Number(e.target.dataset.idx);
+      const inst = e.target.dataset.inst;
+      if (!Array.isArray(doors[idx].instruments)) doors[idx].instruments = [];
+      if (e.target.checked) {
+        if (!doors[idx].instruments.includes(inst)) doors[idx].instruments.push(inst);
+      } else {
+        doors[idx].instruments = doors[idx].instruments.filter(item => item !== inst);
+      }
+      saveData();
+      renderCalendar();
+    });
+  });
+
+  document.getElementById('editorModal').classList.add('open');
+}
+
+function startSnowfall() {
+  const canvas = document.getElementById('snowCanvas');
+  const ctx = canvas.getContext('2d');
+  let w = canvas.width = window.innerWidth;
+  let h = canvas.height = window.innerHeight;
+  let pointer = { x: -9999, y: -9999, active: false };
+
+  window.addEventListener('resize', () => {
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+  });
+
+  window.addEventListener('mousemove', e => {
+    pointer.x = e.clientX;
+    pointer.y = e.clientY;
+    pointer.active = true;
+  }, { passive: true });
+
+  window.addEventListener('touchmove', e => {
+    if (e.touches && e.touches[0]) {
+      pointer.x = e.touches[0].clientX;
+      pointer.y = e.touches[0].clientY;
+      pointer.active = true;
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchend', () => { pointer.active = false; }, { passive: true });
+  document.addEventListener('mouseleave', () => { pointer.active = false; });
+
+  const particles = Array.from({ length: 115 }, () => ({
+    x: Math.random() * w,
+    y: Math.random() * h,
+    r: Math.random() * 2.4 + 0.75,
+    vy: Math.random() * 0.72 + 0.24,
+    vx: (Math.random() - 0.5) * 0.34,
+    wx: 0,
+    wy: 0,
+    phase: Math.random() * Math.PI * 2,
+    isGold: Math.random() < 0.26,
+    alpha: Math.random() * 0.55 + 0.24
+  }));
+
+  // 24 Hintergrund-Sterne, die im Laufe des Dezembers nach und nach am Nachthimmel aufgehen
+  const bgStars = Array.from({ length: 24 }, (_, idx) => ({
+    rx: ((idx * 73 + 19) % 92 + 4) / 100,
+    ry: ((idx * 41 + 11) % 34 + 3) / 100,
+    size: (idx % 3 === 0) ? 2.1 : 1.45,
+    twinkleOffset: idx * 0.9
+  }));
+
+  (function frame() {
+    ctx.clearRect(0, 0, w, h);
+    const { openCount } = getAtmosphereProgress();
+
+    // Wachsende Goldsterne am Nachthimmel (1 Stern pro geöffnetem Türchen)
+    const nowSec = Date.now() / 1000;
+    for (let s = 0; s < openCount && s < bgStars.length; s++) {
+      const st = bgStars[s];
+      const sx = st.rx * w;
+      const sy = st.ry * h;
+      const twinkle = 0.32 + 0.28 * Math.sin(nowSec * 1.6 + st.twinkleOffset);
+      ctx.beginPath();
+      ctx.arc(sx, sy, st.size, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(245, 215, 127, ${twinkle.toFixed(3)})`;
+      ctx.fill();
+    }
+
+    for (const p of particles) {
+      p.phase += 0.015;
+
+      if (pointer.active) {
+        const dx = p.x - pointer.x;
+        const dy = p.y - pointer.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 0 && dist < 125) {
+          const force = (1 - dist / 125) * 1.15;
+          p.wx += (dx / dist) * force;
+          p.wy += (dy / dist) * force * 0.6;
+        }
+      }
+
+      p.wx *= 0.92;
+      p.wy *= 0.92;
+      p.y += p.vy + p.wy;
+      p.x += p.vx + Math.sin(p.phase) * 0.24 + p.wx;
+
+      if (p.y > h + 6) { p.y = -4; p.x = Math.random() * w; }
+      if (p.y < -12) { p.y = h + 4; }
+      if (p.x > w + 6) p.x = -4;
+      if (p.x < -6) p.x = w + 4;
+
+      const goldLook = p.isGold || finaleActive;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, finaleActive ? p.r * 1.15 : p.r, 0, Math.PI * 2);
+      ctx.fillStyle = goldLook
+        ? `rgba(242, 204, 102, ${Math.min(0.95, p.alpha + (finaleActive ? 0.22 : 0))})`
+        : `rgba(246, 244, 238, ${p.alpha})`;
+      ctx.fill();
+    }
+    requestAnimationFrame(frame);
+  })();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const tplEl = document.getElementById('cleanTemplateSource');
+  if (tplEl && !tplEl.textContent) {
+    tplEl.textContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+  }
+
+  loadData();
+  computeDoorOrder();
+  generateChaosLayout();
+  initWaveBars();
+  startSnowfall();
+  updateCountdown();
+  setInterval(updateCountdown, 1000);
+  renderCalendar();
+
+  // Formen-Auswahl (inkl. Neu-Verwürfeln bei erneutem Klick auf "Durcheinander")
+  document.querySelectorAll('.shape-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.shape-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeShape = btn.dataset.shape;
+      if (activeShape === 'chaos') {
+        generateChaosLayout();
+      }
+      renderCalendar();
+    });
+  });
+
+  // Zahlen mischen Toggle (verwürfelt auch "Durcheinander" neu)
+  const shuffleCheck = document.getElementById('shuffleCheck');
+  const shuffleToggle = document.getElementById('shuffleToggle');
+  shuffleCheck.addEventListener('change', () => {
+    isShuffled = shuffleCheck.checked;
+    shuffleToggle.classList.toggle('is-on', isShuffled);
+    computeDoorOrder();
+    if (activeShape === 'chaos') {
+      generateChaosLayout();
+    }
+    renderCalendar();
+  });
+
+  // Favoriten-Filter
+  const favFilterBtn = document.getElementById('favFilterBtn');
+  favFilterBtn.addEventListener('click', () => {
+    onlyFavorites = !onlyFavorites;
+    favFilterBtn.classList.toggle('active', onlyFavorites);
+    if (onlyFavorites && favorites.length === 0) {
+      showToast('Noch keine Favoriten markiert – klicke in einem Türchen auf den Stern.');
+    }
+    renderCalendar();
+  });
+
+  // Favorit speichern im Modal
+  document.getElementById('favToggleBtn').addEventListener('click', () => {
+    if (!currentDoor) return;
+    const pos = favorites.indexOf(currentDoor.day);
+    if (pos >= 0) {
+      favorites.splice(pos, 1);
+      showToast(`Türchen ${currentDoor.day} aus Favoriten entfernt`);
+    } else {
+      favorites.push(currentDoor.day);
+      showToast(`Türchen ${currentDoor.day} als Favorit gespeichert!`);
+    }
+    saveFavorites();
+    updateModalFavButton();
+    renderCalendar();
+  });
+
+  // Loop-Button (↻) im Player
+  const loopBtn = document.getElementById('loopBtn');
+  loopBtn.addEventListener('click', () => {
+    isLooping = !isLooping;
+    loopBtn.classList.toggle('active', isLooping);
+    document.getElementById('audioEl').loop = isLooping;
+    showToast(isLooping ? 'Endlosschleife aktiviert' : 'Endlosschleife deaktiviert');
+  });
+
+  // Direkte WhatsApp-Reaktion im Modal
+  document.getElementById('whatsappBtn').addEventListener('click', () => {
+    if (!currentDoor) return;
+    const dayStr = String(currentDoor.day).padStart(2, '0');
+    const msg = `Habe gerade Türchen ${dayStr} („${currentDoor.title}“) gehört – `;
+    const cleanPhone = (settings.whatsappPhone || '').replace(/[^0-9]/g, '');
+    const waUrl = cleanPhone
+      ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+    window.open(waUrl, '_blank', 'noopener');
+  });
+
+  // Download im Modal
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    if (!currentDoor) return;
+    const slug = currentDoor.title.toLowerCase().replace(/[^a-z0-9äöüß]+/gi, '_').replace(/^_|_$/g, '');
+    const link = document.createElement('a');
+    if (currentDoor.audioUrl && currentDoor.audioUrl.trim()) {
+      link.href = currentDoor.audioUrl.trim();
+      link.download = `Tuerchen_${String(currentDoor.day).padStart(2, '0')}_${slug}.mp3`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('Download gestartet!');
+    } else {
+      const wav = createWavBlob(currentDoor.chord);
+      const url = URL.createObjectURL(wav);
+      link.href = url;
+      link.download = `Tuerchen_${String(currentDoor.day).padStart(2, '0')}_${slug}_Vorschau.wav`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      showToast('Klangvorschau als .wav heruntergeladen!');
+    }
+  });
+
+  // Audio-Player Steuerung
+  const audioEl = document.getElementById('audioEl');
+  document.getElementById('playBtn').addEventListener('click', () => {
+    if (!currentDoor) return;
+    if (isPlaying) {
+      stopPlayback();
+      return;
+    }
+    if (currentDoor.audioUrl && currentDoor.audioUrl.trim()) {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        if (!mediaSourceConnected) {
+          const srcNode = audioCtx.createMediaElementSource(audioEl);
+          analyserNode = audioCtx.createAnalyser();
+          analyserNode.fftSize = 128;
+          analyserData = new Uint8Array(analyserNode.frequencyBinCount);
+          srcNode.connect(analyserNode);
+          analyserNode.connect(audioCtx.destination);
+          mediaSourceConnected = true;
+        }
+      } catch (e) {}
+
+      audioEl.loop = isLooping;
+      audioEl.play().then(() => {
+        isPlaying = true;
+        document.getElementById('playBtn').innerHTML = '&#10074;&#10074;';
+        animateWave();
+      }).catch(() => startSynthPreview(currentDoor));
+    } else {
+      startSynthPreview(currentDoor);
+    }
+  });
+
+  audioEl.addEventListener('loadedmetadata', () => {
+    if (isFinite(audioEl.duration)) {
+      document.getElementById('durTime').textContent = formatTime(audioEl.duration);
+    }
+  });
+
+  audioEl.addEventListener('timeupdate', () => {
+    if (audioEl.duration) {
+      document.getElementById('seekFill').style.width = `${(audioEl.currentTime / audioEl.duration) * 100}%`;
+      document.getElementById('curTime').textContent = formatTime(audioEl.currentTime);
+    }
+  });
+
+  audioEl.addEventListener('ended', () => {
+    if (!isLooping) stopPlayback();
+  });
+
+  document.getElementById('seekTrack').addEventListener('click', e => {
+    if (audioEl.duration) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      audioEl.currentTime = ((e.clientX - rect.left) / rect.width) * audioEl.duration;
+    }
+  });
+
+  // Modals schließen
+  function closeDoorModalClean() {
+    stopPlayback();
+    finaleActive = false;
+    renderEnsembleStrip();
+    document.getElementById('doorModal').classList.remove('open');
+  }
+
+  document.getElementById('closeDoorBtn').addEventListener('click', closeDoorModalClean);
+
+  document.getElementById('doorModal').addEventListener('click', e => {
+    if (e.target.id === 'doorModal') closeDoorModalClean();
+  });
+
+  document.getElementById('closeEditBtn').addEventListener('click', () => {
+    document.getElementById('editorModal').classList.remove('open');
+  });
+
+  document.getElementById('editorModal').addEventListener('click', e => {
+    if (e.target.id === 'editorModal') e.target.classList.remove('open');
+  });
+
+  // Geheimer Admin-Modus (?admin=1 oder 3x Klicken auf "Von Ricco für Lena")
+  const adminBar = document.getElementById('adminBar');
+  if (new URLSearchParams(window.location.search).get('admin') === '1') {
+    adminBar.classList.add('visible');
+  }
+
+  let clickCount = 0;
+  let clickResetTimer = null;
+  document.getElementById('secretTrigger').addEventListener('click', () => {
+    clickCount++;
+    clearTimeout(clickResetTimer);
+    clickResetTimer = setTimeout(() => { clickCount = 0; }, 900);
+    if (clickCount >= 3) {
+      clickCount = 0;
+      adminBar.classList.add('visible');
+      showToast('Composer-Leiste aktiviert');
+    }
+  });
+
+  const previewBtn = document.getElementById('previewBtn');
+  previewBtn.addEventListener('click', () => {
+    previewMode = !previewMode;
+    previewBtn.textContent = `Vorschau-Modus: ${previewMode ? 'An' : 'Aus'}`;
+    updateCountdown();
+    renderCalendar();
+  });
+
+  document.getElementById('editBtn').addEventListener('click', openComposerEditor);
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    doors = JSON.parse(JSON.stringify(DEFAULT_DOORS));
+    saveData();
+    renderCalendar();
+    openComposerEditor();
+    showToast('Auf Standardwerte zurückgesetzt');
+  });
+
+  document.getElementById('copyBtn').addEventListener('click', () => {
+    const ta = document.createElement('textarea');
+    ta.value = `const DEFAULT_DOORS = ${JSON.stringify(doors, null, 2)};`;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('Datenblock in die Zwischenablage kopiert!');
+  });
+
+  document.getElementById('exportHtmlBtn').addEventListener('click', () => {
+    const rawTpl = document.getElementById('cleanTemplateSource')?.textContent;
+    let htmlOut = (rawTpl && rawTpl.includes('DEFAULT_DOORS'))
+      ? rawTpl
+      : ('<!DOCTYPE html>\n' + document.documentElement.outerHTML);
+    htmlOut = htmlOut.replace(
+      /const DEFAULT_DOORS = \[[\s\S]*?\];/,
+      `const DEFAULT_DOORS = ${JSON.stringify(doors, null, 2)};`
+    );
+    htmlOut = htmlOut.replace(
+      /const DEFAULT_SETTINGS = \{[\s\S]*?\};/,
+      `const DEFAULT_SETTINGS = ${JSON.stringify(settings)};`
+    );
+    htmlOut = htmlOut
+      .replace('class="admin-bar visible"', 'class="admin-bar"')
+      .replace('class="modal-backdrop open"', 'class="modal-backdrop"');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([htmlOut], { type: 'text/html;charset=utf-8' }));
+    a.download = 'index.html';
+    a.click();
+    showToast('Fertige index.html heruntergeladen!');
+  });
+});
+</script>
+</body>
+</html>
